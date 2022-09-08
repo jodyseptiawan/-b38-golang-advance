@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
+
 type UserRepository interface {
 	FindUsers() ([]models.User, error)
 	GetUser(ID int) (models.User, error)
