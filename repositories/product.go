@@ -10,6 +10,7 @@ type ProductRepository interface {
 	FindProducts() ([]models.Product, error)
 	GetProduct(ID int) (models.Product, error)
 	CreateProduct(product models.Product) (models.Product, error)
+	FindCategoriesById(CategoryID []int) ([]models.Category, error)
 }
 
 func RepositoryProduct(db *gorm.DB) *repository {
@@ -35,4 +36,12 @@ func (r *repository) CreateProduct(product models.Product) (models.Product, erro
 	err := r.db.Create(&product).Error
 
 	return product, err
+}
+
+
+func (r *repository) FindCategoriesById(CategoryID []int) ([]models.Category, error) {
+	var categories []models.Category
+	err := r.db.Find(&categories, CategoryID).Error
+
+	return categories, err
 }

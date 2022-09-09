@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"os"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
@@ -19,6 +21,7 @@ type handlerProduct struct {
 }
 
 // Create `path_file` Global variable here ...
+var PathFile = os.Getenv("PATH_FILE")
 
 func HandlerProduct(ProductRepository repositories.ProductRepository) *handlerProduct {
 	return &handlerProduct{ProductRepository}
@@ -35,7 +38,11 @@ func (h *handlerProduct) FindProducts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+
 	// Create Embed Path File on Image property here ...
+	for i, p := range products {
+		products[i].Image = os.Getenv("PATH_FILE") + p.Image
+	  }
 
 	w.WriteHeader(http.StatusOK)
 	response := dto.SuccessResult{Code: http.StatusOK, Data: products}
@@ -57,6 +64,7 @@ func (h *handlerProduct) GetProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create Embed Path File on Image property here ...
+	product.Image = os.Getenv("PATH_FILE") + product.Image
 
 	w.WriteHeader(http.StatusOK)
 	response := dto.SuccessResult{Code: http.StatusOK, Data: convertResponseProduct(product)}
@@ -71,16 +79,25 @@ func (h *handlerProduct) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	userId := int(userInfo["id"].(float64))
 
 	// Get dataFile from midleware and store to filename variable here ...
+	dataContex := r.Context().Value("dataFile") // add this code
+	filename := dataContex.(string) // add this code
 
 	price, _ := strconv.Atoi(r.FormValue("price"))
 	qty, _ := strconv.Atoi(r.FormValue("qty"))
-	category_id, _ := strconv.Atoi(r.FormValue("category_id"))
+	// [4,8,2] => category id
+	var categoriesId []int
+	for _, r := range r.FormValue("category_id") {
+		if int(r-'0') >= 0 {
+			categoriesId = append(categoriesId, int(r-'0'))
+		}
+	}
+
 	request := productdto.ProductRequest{
 		Name:       r.FormValue("name"),
 		Desc:       r.FormValue("desc"),
 		Price:      price,
 		Qty:        qty,
-		CategoryID: category_id,
+		CategoryID: categoriesId,
 	}
 
 	validation := validator.New()
@@ -92,6 +109,8 @@ func (h *handlerProduct) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	category, _ := h.ProductRepository.FindCategoriesById(categoriesId)
+
 	product := models.Product{
 		Name:   request.Name,
 		Desc:   request.Desc,
@@ -99,9 +118,9 @@ func (h *handlerProduct) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		Image:  filename,
 		Qty:    request.Qty,
 		UserID: userId,
+		Category: category,
 	}
 
-	// err := mysql.DB.Create(&product).Error
 	product, err = h.ProductRepository.CreateProduct(product)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
